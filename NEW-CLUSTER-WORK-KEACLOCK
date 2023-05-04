@@ -1,0 +1,303 @@
+vi deploy.yaml
+ 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.16.1 # Update the version of nginx from 1.14.2 to 1.16.1
+        env:
+        - name: ALLOW_EMPTY_PASSWORD
+          value: "yes"
+        - name: DATABASE_HOST
+          value: "mariadb-primary"
+        - name: DATABASE_PORT_NUMBER
+          value: "3306"
+        - name: DRUPAL_DATABASE_USER
+          value: "Farmer"
+        - name: DATABASE_NAME
+          value: "Farmer"
+        - name: DATABASE_PASSWORD
+          value: "Agro@I2I"	
+        ports:
+        - containerPort: 80
+
+ 1069  kubectl apply -f deploy.yaml -n apache
+ 1070  kubectl get all -n apache
+ 1071  kubectl get pvc -n apache
+ 1072  kubectl get all -n apache
+ 1073  kubectl delete -f deploy.yaml -n apache
+ 1074  vi deploy.yaml
+ 1075  kubectl apply -f deploy.yaml -n apache
+ 1076  kubectl get all -n apache
+ 1077  kubectl expose deployment nginx-deployment -n apache --type=LoadBalancer --port=80 --name=nginx
+ 1078  kubectl get svc -n apache
+ 1079  kubectl get pods -n apache
+ 1080  kubectl exec -it nginx-deployment-ff6655784-mhvvt -n apache -- /bin/bash
+ 1081  vi deploy.yaml
+ 1082  kubectl get pod/nginx-deployment-ff6655784-mhvvt -n apache -o yaml
+ 1083  kubectl exec -it nginx-deployment-ff6655784-mhvvt -n apache -- /bin/bash
+       find . -name index.html
+ 1084  ll
+ 1085  cd web/
+ 1086  ll
+ 1087  kubectl cp assets nginx-deployment-ff6655784-mhvvt:/usr/share/nginx/html -n apache
+ 1088  kubectl cp canvaskit nginx-deployment-ff6655784-mhvvt:/usr/share/nginx/html -n apache
+ 1089  kubectl cp favicon.png nginx-deployment-ff6655784-mhvvt:/usr/share/nginx/html -n apache
+ 1090  kubectl cp flutter_service_worker.js nginx-deployment-ff6655784-mhvvt:/usr/share/nginx/html -n apache
+ 1091  kubectl cp icons nginx-deployment-ff6655784-mhvvt:/usr/share/nginx/html -n apache
+ 1092  kubectl cp index.html nginx-deployment-ff6655784-mhvvt:/usr/share/nginx/html -n apache
+ 1093  kubectl cp main.dart.js nginx-deployment-ff6655784-mhvvt:/usr/share/nginx/html -n apache
+ 1094  kubectl cp manifest.json nginx-deployment-ff6655784-mhvvt:/usr/share/nginx/html -n apache
+ 1095  kubectl cp version.json nginx-deployment-ff6655784-mhvvt:/usr/share/nginx/html -n apache
+ 1096  kubectl exec -it nginx-deployment-ff6655784-mhvvt -n apache -- /bin/bash
+ 1097  kubectl get pvc -n apache
+ 1098  kubectl get pods -n apache
+ 1099  kubectl cp assets nginx-deployment-ff6655784-nz6vx:/usr/share/nginx/html -n apache
+ 1100  kubectl cp canvaskit nginx-deployment-ff6655784-nz6vx:/usr/share/nginx/html -n apache
+ 1101  kubectl cp favicon.png nginx-deployment-ff6655784-nz6vx:/usr/share/nginx/html -n apache
+ 1102  kubectl cp flutter_service_worker.js nginx-deployment-ff6655784-nz6vx:/usr/share/nginx/html -n apache
+ 1103  kubectl cp icons nginx-deployment-ff6655784-nz6vx:/usr/share/nginx/html -n apache
+ 1104  kubectl cp index.html nginx-deployment-ff6655784-nz6vx:/usr/share/nginx/html -n apache
+ 1105  kubectl cp main.dart.js nginx-deployment-ff6655784-nz6vx:/usr/share/nginx/html -n apache
+ 1106  kubectl cp manifest.json nginx-deployment-ff6655784-nz6vx:/usr/share/nginx/html -n apache
+ 1107  kubectl cp version.json nginx-deployment-ff6655784-nz6vx:/usr/share/nginx/html -n apache
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: akashagro
+  name: akashagro
+spec:
+  replicas: 1
+  selector:
+     matchLabels:
+       app: akashagro
+  template:
+    metadata:
+      labels:
+        app: akashagro
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: topology.kubernetes.io/zone
+                operator: In
+                values:
+                - us-east-1a
+      containers:
+      - image: 013153099871.dkr.ecr.us-east-1.amazonaws.com/newone:latest
+        env:
+        - name: ALLOW_EMPTY_PASSWORD
+          value: "yes"
+        - name: DRUPAL_DATABASE_HOST
+          value: "drupal-mariadb-primary"
+        - name: DRUPAL_DATABASE_PORT_NUMBER
+          value: "3306"
+        - name: DRUPAL_DATABASE_USER
+          value: "bn_drupal"
+        - name: DRUPAL_DATABASE_NAME
+          value: "bitnami_drupal"
+        - name: DRUPAL_DATABASE_PASSWORD
+          value: "nzFxjSa5Kj"
+        - name: DRUPAL_PROFILE
+          value: standard
+        - name: DRUPAL_USERNAME
+          value: user
+        - name: DRUPAL_PASSWORD
+          value: Admin
+        - name: DRUPAL_EMAIL
+          value: support@marmonim.com
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 500
+          httpGet:
+            path: /user/login
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: drupal
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        - containerPort: 443
+          name: https
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 500
+          httpGet:
+            path: /user/login
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          requests:
+            cpu: 300m
+            memory: 512Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/www/html
+          name: drupal-data
+      volumes:
+      - name: drupal-data
+        persistentVolumeClaim:
+          claimName: drupal-data
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: true
+      hostAliases:
+      - hostnames:
+        - status.localhost
+        ip: 127.0.0.1
+      restartPolicy: Always
+	  
+	  
+*********************************************************************	  
+MYSQL DATABASE DETAILS FOR KEYCLOCK
+
+db name : farmer, akashAuth, keycloak
+
+user name for farmer and akashauth will be same as follow
+
+username: Farmer
+
+pwd: Agro@I2I
+
+ 
+
+user name for keycloak will be as follow
+
+username: key
+
+pwd: Agro@I2I
+
+has context menu	  
+
+
+helm install mysql-keyclock bitnami/mysql \
+--set primary.persistence.storageClass="mysql"  \
+--set secondary.persistence.storageClass="mysql" \
+--set auth.rootPassword="Agro@I2I" \
+--set architecture=replication  \
+--set secondary.replicaCount=1 \
+--set auth.replicationPassword="Agro@I2I" \
+--set=global.storageClass=openebs-hostpath \
+-n akash-agro
+
+ helm install mysql-keyclock bitnami/mysql --set primary.persistence.storageClass="openebs-hostpath"  --set secondary.persistence.storageClass="openebs-hostpath" --set auth.rootPassword="Agro@I2I" --set architecture=replication  --set secondary.replicaCount=1 --set auth.replicationPassword="Agro@I2I" --set=global.storageClass=openebs-hostpath -n akash
+
+mysql -u root -p
+pass-Agro@I2I
+
+create user 'Farmer' identified by 'Agro@I2I';
+
+GRANT ALL PRIVILEGES ON farmer.* TO 'Farmer'@'%';
+GRANT ALL PRIVILEGES ON akashAuth.* TO 'Farmer'@'%';
+
+mysql -u Farmer -p
+
+CREATE DATABASE farmer;
+CREATE DATABASE akashAuth;
+
+mysql -u root -p
+create user 'key' identified by 'Agro@I2I';
+GRANT ALL PRIVILEGES ON keycloak.* TO 'key'@'%';
+
+mysql -u key -p
+
+CREATE DATABASE keycloak;
+
+
+mysql-bitnami.keyclock.svc.cluster.local
+
+
+  vi new-mysql-setup.yaml
+  
+ apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: akash
+  labels:
+    app: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - name: keycloak
+        image: quay.io/keycloak/keycloak:12.0.3
+        env:
+        - name: KEYCLOAK_USER
+          value: "admin"
+        - name: KEYCLOAK_PASSWORD
+          value: "admin"
+        - name: PROXY_ADDRESS_FORWARDING
+          value: "true"
+        - name: DB_VENDOR
+          value: mysql
+        - name: DB_ADDR
+          value: mysql-keyclock-primary
+        - name: DB_DATABASE
+          value: keycloak
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_USER
+          value: key
+        - name: DB_PASSWORD
+          value: "Agro@I2I"
+        - name: JGROUPS_DISCOVERY_PROTOCOL
+          value: dns.DNS_PING
+        - name: JGROUPS_DISCOVERY_PROPERTIES
+          value: 'dns_query=external-mysql-db.iam'
+        - name: CACHE_OWNERS_COUNT
+          value: "2"
+        - name: CACHE_OWNERS_AUTH_SESSIONS_COUNT
+          value: "2"
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: https
+          containerPort: 8443
+        readinessProbe:
+          httpGet:
+            path: /auth/realms/master
+            port: 8080
+          initialDelaySeconds: 30
+ 
+  kubectl apply -f new-mysql-setup.yaml -n akash
+  kubectl get all -n akash
+  kubectl expose pods keycloak-586978d7ff-f8x2q -n akash --type=NodePort --port=8080 --name=keycloak-new
+  kubectl get all -n akash
+  sudo ufw allow 30106/tcp
+  kubectl exec -it pod/mysql-keyclock-primary-0 -n akash -- /bin/bash
+  mysql -u key -p
+CHECK DATABASES AND ITS DATA  
