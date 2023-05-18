@@ -196,17 +196,190 @@ pwd: Agro@I2I
 has context menu	  
 
 
-helm install mysql-keyclock bitnami/mysql \
---set primary.persistence.storageClass="mysql"  \
---set secondary.persistence.storageClass="mysql" \
---set auth.rootPassword="Agro@I2I" \
---set architecture=replication  \
---set secondary.replicaCount=1 \
---set auth.replicationPassword="Agro@I2I" \
---set=global.storageClass=openebs-hostpath \
--n akash-agro
 
- helm install mysql-keyclock bitnami/mysql --set primary.persistence.storageClass="openebs-hostpath"  --set secondary.persistence.storageClass="openebs-hostpath" --set auth.rootPassword="Agro@I2I" --set architecture=replication  --set secondary.replicaCount=1 --set auth.replicationPassword="Agro@I2I" --set=global.storageClass=openebs-hostpath -n akash
+
+docker exec -i agro-db mysql -u Farmer -pAgro@I2I farmer < /home/ubuntu/backup/16May2023-12:00PM-farmer.sql
+docker exec -i mysql_mysql_1 mysql -u key -pAgro@I2I keycloak < /home/ubuntu/backup/16May2023-12:00PM-keycloak.sql
+
+ 
+
+ 
+
+docker exec -it mysql_mysql_1 mysql -u Farmer -pAgro@I2I -e "USE farmer; SHOW TABLES;"
+
+*************************************
+
+vi sc.yaml
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ssd-local-path
+provisioner: cluster.local/local-path-provisioner
+parameters:
+  nodePath: /data/ssd
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+reclaimPolicy: Delete
+
+kubectl apply -f sc.yaml
+**************************************
+vi pv.yaml
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+  labels:
+    type: local
+spec:
+  storageClassName: ssd-local-path
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+	
+kubectl apply -f pv.yaml -n new-project
+**************************************
+vi pvc.yaml
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+spec:
+  storageClassName: ssd-local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+	  
+kubectl apply -f pvc.yaml -n new-project
+******************************************
+vi mysql-statefulset.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - image: mysql:8.0.26
+          name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+          ports:
+            - containerPort: 3306
+              name: mysql
+          volumeMounts:
+            - name: mysql-persistent-storage
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql-persistent-storage
+          persistentVolumeClaim:
+            claimName: mysql-pv-claim
+
+
+
+kubectl apply -f mysql-statefulset.yaml -n new-project
+***************************
+vi service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: mysql
+  clusterIP: None
+
+kubectl apply -f service.yaml -n new-project
+********************************************
+vi keycloak-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: new-project
+  labels:
+    app: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - name: keycloak
+        image: quay.io/keycloak/keycloak:16.1.1
+        env:
+        - name: KEYCLOAK_USER
+          value: "admin"
+        - name: KEYCLOAK_PASSWORD
+          value: "admin"
+        - name: PROXY_ADDRESS_FORWARDING
+          value: "true"
+        - name: DB_VENDOR
+          value: mysql
+        - name: DB_ADDR
+          value: mysql
+        - name: DB_DATABASE
+          value: keycloak
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_USER
+          value: key
+        - name: DB_PASSWORD
+          value: "Agro@I2I"
+        - name: JGROUPS_DISCOVERY_PROTOCOL
+          value: dns.DNS_PING
+        - name: JGROUPS_DISCOVERY_PROPERTIES
+          value: 'dns_query=external-mysql-db.iam'
+        - name: CACHE_OWNERS_COUNT
+          value: "2"
+        - name: CACHE_OWNERS_AUTH_SESSIONS_COUNT
+          value: "2"
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: https
+          containerPort: 8443
+        readinessProbe:
+          httpGet:
+            path: /auth/realms/master
+            port: 8080
+          initialDelaySeconds: 30
+
+
+kubectl apply -f keycloak-deployment.yaml -n new-project
+
+******************************************************
+
+FOR ANOTHER WAY TO CONFIGURE MYSQL AND KEYCLOAK
+
+helm install mysql-keyclock bitnami/mysql --set primary.persistence.storageClass="openebs-hostpath"  --set secondary.persistence.storageClass="openebs-hostpath" --set auth.rootPassword="Agro@I2I" --set architecture=replication  --set secondary.replicaCount=1 --set auth.replicationPassword="Agro@I2I" --set=global.storageClass=openebs-hostpath --version 8.0.26 -n akash 
 
 mysql -u root -p
 pass-Agro@I2I
@@ -230,12 +403,9 @@ mysql -u key -p
 CREATE DATABASE keycloak;
 
 
-mysql-bitnami.keyclock.svc.cluster.local
-
-
-  vi new-mysql-setup.yaml
+vi new-mysql-setup.yaml
   
- apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: keycloak
@@ -296,11 +466,12 @@ spec:
   kubectl apply -f new-mysql-setup.yaml -n akash
   kubectl get all -n akash
   kubectl expose pods keycloak-586978d7ff-f8x2q -n akash --type=NodePort --port=8080 --name=keycloak-new
+  kubectl expose pods keycloak-587b7d7955-qspwm -n akash --type=NodePort --port=8080 --name=new-keycloak
   kubectl get all -n akash
   sudo ufw allow 30106/tcp
   kubectl exec -it pod/mysql-keyclock-primary-0 -n akash -- /bin/bash
   mysql -u key -p
-CHECK DATABASES AND ITS DATA  
+CHECK DATABASES AND ITS DATA 
 
 helm install my-release oci://registry-1.docker.io/bitnamicharts/tomcat -n akash --set=global.storageClass=openebs-hostpath
 kubectl edit svc  my-release-tomcat -n akash
@@ -355,3 +526,112 @@ COPY THIS FILE TO PODS
 kubectl cp tomcat-users.xml my-release-tomcat-6cbd5c5bdc-q2xcp:/opt/bitnami/tomcat/conf/ -n akash
 
 HIT IP WITH PORT
+**********************************************
+
+WORK OF  NGINX CONTROLLER.
+
+helm install my-release nginx-stable/nginx-ingress -n new-project
+
+kubectl create secret tls my-release-aakash-tls --namespace aakash-agro     --key Private.key     --cert server.crt
+
+vi  treafic-ingress.yaml
+
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: new-keycloak
+  namespace: new-project
+    #  annotations:
+    #    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+  - hosts:
+    - testpmo.ideastoimpacts.com
+    secretName: my-release-new-keycloak-tls
+  rules:
+  - host: testpmo.ideastoimpacts.com
+    http:
+      paths:
+        - pathType: Prefix
+          path: /
+          backend:
+            service:
+              name: new-keycloak
+              port:
+                number: 8080
+				
+kubectl apply -f treafic-ingress.yaml -n new-project
+
+vi /etc/hosts
+add following line in last
+172.28.25.240 testpmo.ideastoimpacts.com				
+
+kubectl get ing -n new-project
+curl doamin-name
+*************************************************************				
+FOR SECOND DOMAIN MAP USE SECONF YAML FILE FOR APACHE TOMCAT
+
+vi treafic-ingress-second.yaml
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-release-new-tomcat
+  namespace: new-project
+    #  annotations:
+    #    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+  - hosts:
+    - farmerappuat.ideastoimpacts.com
+    secretName: my-release-new-keycloak-tls
+  rules:
+  - host: farmerappuat.ideastoimpacts.com
+    http:
+      paths:
+        - pathType: Prefix
+          path: /
+          backend:
+            service:
+              name: my-release-new-tomcat
+              port:
+                number: 80
+
+
+kubectl apply -f treafic-ingress-second.yaml -n new-project
+
+**********************************************************
+ helm upgrade --install my-release bitnami/redmine --values /tmp/redmine.values -n test-redmine --set=global.storageClass=openebs-hostpath
+ kubectl get pods -n test-redmine --watch
+
+
+FOR THIRD DOMAIN MAP FOR REDMINE APPLICATION
+
+vi treafic-ingress-redmine.yaml
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-release-redmine
+  namespace: test-redmine
+    #  annotations:
+    #    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+  - hosts:
+    - testpmo.ideastoimpacts.com
+    secretName: my-release-redmine-tls
+  rules:
+  - host: testpmo.ideastoimpacts.com
+    http:
+      paths:
+        - pathType: Prefix
+          path: /
+          backend:
+            service:
+              name: my-release-redmine
+              port:
+                number: 80
+
+kubectl apply -f treafic-ingress-redmine.yaml -n test-redmine
