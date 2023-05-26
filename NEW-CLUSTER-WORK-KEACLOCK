@@ -314,6 +314,7 @@ spec:
   selector:
     app: mysql
 
+
 kubectl apply -f service.yaml -n new-project
 ********************************************
 vi keycloak-deployment.yaml
@@ -407,6 +408,50 @@ mysql -u key -p
 CREATE DATABASE keycloak;
 
 
+
+vi keycloak.sh
+
+#! /bin/bash
+### MySQL Server Login Info ###
+DATE=$(date +%Y-%m-%d_%H-%M-%S)
+DB_NAME="keycloak"
+BACKUP_FILENAME="${DB_NAME}-${DATE}.sql"
+kubectl exec mysql-858fcb86b5-cq5lv  -n new-project -- mysqldump -u root  -proot --triggers --single-transaction --quick  keycloak > "/tmp/mysql-backups/$BACKUP_FILENAME"
+
+sudo chmod 777 keycloak.sh
+crontab -e
+0 */6 * * * /bin/bash /home/i2i/keycloak.sh
+
+
+vi farmer.sh
+
+#! /bin/bash
+### MySQL Server Login Info ###
+DATE=$(date +%Y-%m-%d_%H-%M-%S)
+DB_NAME="farmer"
+BACKUP_FILENAME="${DB_NAME}-${DATE}.sql"
+kubectl exec mysql-858fcb86b5-cq5lv  -n new-project -- mysqldump -u root  -proot --triggers --single-transaction --quick  farmer > "/tmp/mysql-backups/$BACKUP_FILENAME"
+
+sudo chmod 777 farmer.sh
+
+sduo crontab -e
+
+0 */6 * * * /bin/bash /home/i2i/farmer.sh
+
+vi akashauth.sh
+
+#! /bin/bash
+### MySQL Server Login Info ###
+DATE=$(date +%Y-%m-%d_%H-%M-%S)
+DB_NAME="akashAuth"
+BACKUP_FILENAME="${DB_NAME}-${DATE}.sql"
+kubectl exec mysql-858fcb86b5-cq5lv  -n new-project -- mysqldump -u root  -proot --triggers --single-transaction --quick  akashAuth > "/tmp/mysql-backups/$BACKUP_FILENAME"
+
+sudo chmod 777 akashauth.sh
+
+sudo crontab -e
+0 */6 * * * /bin/bash /home/i2i/akashAuth.sh
+
 vi new-mysql-setup.yaml
   
 apiVersion: apps/v1
@@ -479,6 +524,63 @@ CHECK DATABASES AND ITS DATA
 
 helm install my-release oci://registry-1.docker.io/bitnamicharts/tomcat -n akash --set=global.storageClass=openebs-hostpath
 kubectl edit svc  my-release-tomcat -n akash
+************************
+SECOND TYPE TO DEPLOY TOMCAT WITH YAM FILE 
+
+vi tomcat.yaml
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  tomcat-deployment-nautilus
+  namespace: new-project
+  labels:
+    name: webdep
+    app: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: webpod
+      app: demo
+  template:
+    metadata:
+      name: webpod
+      labels:
+        name: webpod
+        app: demo
+    spec:
+      containers:
+        - name: tomcat-container-nautilus
+          image: tomcat:9.0.58
+          ports:
+            - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tomcat-service-nautilus
+  namespace: new-project
+spec:
+  type: NodePort
+  selector:
+    name: webpod
+    app: demo
+  ports:
+      # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
+    - port: 80
+      targetPort: 8080
+      # Optional field
+      # By default and for convenience, the Kubernetes control plane will allocate a port from a range (default: 30000-32767)
+      nodePort: 32227
+
+
+
+cp -R * ../webapps (hit this command in tomcat-pod /usr/local/tomcat/webapps.dist on this path)
+
+
 kubectl cp tomcat-7f448666f9-gtqll:/opt/bitnami/apache-tomcat/webapps/manager/META-INF/context.xml ./context.xml -n akash
      (copy context.xml from pod to local server path)
 EDIT THIS FILE WITH FOLLOWING CHANGES 
@@ -529,6 +631,7 @@ EDIT THIS FILE WITH FOLLOWING CONTENT
 COPY THIS FILE TO PODS           
 kubectl cp tomcat-users.xml my-release-tomcat-6cbd5c5bdc-q2xcp:/opt/bitnami/tomcat/conf/ -n akash
 
+kubectl cp my-release-new-tomcat-78f6d7bbbb-kr879:/bitnami/tomcat/webapps/manager/WEB-INF/web.xml -n new-project ./web.xml
 HIT IP WITH PORT
 **********************************************
 
@@ -639,3 +742,30 @@ spec:
                 number: 80
 
 kubectl apply -f treafic-ingress-redmine.yaml -n test-redmine
+
+***********************************************************************8
+
+KONG DEPLOYMENT 
+
+KONGA DEPLOYMENT 
+
+ sudo apt-get install nodejs
+ 2195  node --version
+ 2196  sudo apt-get install npm
+ 2197  free -h
+ 2198  npm --version
+ 2199  vi /etc/passwd
+ 2200  git clone https://github.com/pantsel/konga.git
+ 2201  ll
+ 2202  cd kong
+ 2203  cd ..
+ 2204  cd konga/
+ 2205  ls
+ 2206  npm i
+ 2207  free -h
+ 2208  cat .env_example
+ 2209  cp .env_example .env
+ 2210  vi .env
+ 2211  ufw allow 1337/tcp
+ 2212  sudo ufw allow 1337/tcp
+ 2213  npm start
