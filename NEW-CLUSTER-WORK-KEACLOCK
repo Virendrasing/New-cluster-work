@@ -733,7 +733,7 @@ spec:
   - host: testpmo.ideastoimpacts.com
     http:
       paths:
-        - pathType: Prefix
+        - pathType: Prefix	
           path: /
           backend:
             service:
@@ -744,9 +744,66 @@ spec:
 kubectl apply -f treafic-ingress-redmine.yaml -n test-redmine
 
 ***********************************************************************8
+https://www.youtube.com/watch?v=9BdZa-bhf7k
 
 KONG DEPLOYMENT 
+i2i@w1:~$ kubectl apply -f https://raw.githubusercontent.com/Kong/kubernetes-ingress-controller/v2.9.3/deploy/single/all-in-one-dbless-k4k8s-enterprise.yaml
 
+"OR" 
+
+
+helm repo add kong https://charts.konghq.com
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+
+kubectl create namespace kong
+
+kubectl create secret generic kong-db-password \
+  -n kong \
+  --from-literal=password=kong \
+  --from-literal=replication-password=kong \
+  --from-literal=postgres-password=kong
+  
+helm install kong-db bitnami/postgresql -n kong \
+  --set auth.username=kong \
+  --set auth.existingSecret=kong-db-password \
+  --set auth.database=kong
+
+vi values.yaml
+
+env:
+  database: "postgres"
+  pg_host: "kong-db-postgresql.kong.svc.cluster.local"
+  pg_port: 5432
+  pg_user: kong
+  pg_password:
+    valueFrom:
+      secretKeyRef:
+        name: kong-db-password
+        key: password
+
+admin:
+  enabled: true
+  http:
+    enabled: true
+
+image:
+  repository: kong
+  tag: "3.1"
+
+ingressController:
+  installCRDs: false
+
+
+helm upgrade -i my-kong kong/kong -n kong --values values.yaml
+
+KONGA URL-  http://172.28.25.191:1337/#!/dashboard
+
+JSON OUTPUT KONG ADMIN- http://172.28.25.191:32382/
+
+KONG PROXY URL- http://172.28.25.191:32733/
+  
+GRAFANA DASHBOARD- http://172.28.25.191:31603/dashboards  
 KONGA DEPLOYMENT 
 
  sudo apt-get install nodejs
